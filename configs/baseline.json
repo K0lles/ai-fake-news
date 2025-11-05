@@ -1,0 +1,14 @@
+{
+  "plm_name": "xlm-roberta-base",
+  "max_len": 384,
+  "batch_size": 8,
+  "epochs": 2,
+  "lr": 2e-5,
+  "weight_decay": 0.01,
+  "warmup_steps": 0,
+  "grad_clip": 1.0,
+  "train_val_split": 0.2,
+  "device": "cuda",
+  "save_dir": "checkpoints",
+  "random_seed": 42
+}
