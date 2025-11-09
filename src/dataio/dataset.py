@@ -27,9 +27,14 @@ class NewsDataset(Dataset):
             max_length=self.max_len,
             return_tensors="pt"
         )
+
         item = {
             "input_ids": enc["input_ids"].squeeze(0),
             "attention_mask": enc["attention_mask"].squeeze(0),
-            "label": torch.tensor(r["label"], dtype=torch.float32)
+            "label": torch.tensor(r["label"], dtype=torch.float32),
+            # додаткові поля:
+            "rating": torch.tensor(r["rating"], dtype=torch.float32),
+            "author": r["author"],
+            "position": r["position"],
         }
         return item
