@@ -12,45 +12,59 @@ class NewsEncoder(nn.Module):
 
     def forward(self, input_ids, attention_mask):
         out = self.model(input_ids, attention_mask=attention_mask)
-        last_hidden = self.model(input_ids, attention_mask=attention_mask).last_hidden_state
-        cls_like = last_hidden[:, 0]              # <s> токен — репрезентація речення
-        return self.dropout(cls_like)             # [B, hidden]
+        last_hidden = out.last_hidden_state          # [B, L, H]
+        cls_like = last_hidden[:, 0]                 # [B, H]
+        return self.dropout(cls_like)
 
 
 class BaselineClassifier(nn.Module):
-    def __init__(self, plm_name: str = "xlm-roberta-base", use_rating: bool = False):
+    def __init__(
+        self,
+        plm_name: str = "xlm-roberta-base",
+        use_rating: bool = False,
+        use_author_prior: bool = False
+    ):
         super().__init__()
         cfg = AutoConfig.from_pretrained(plm_name)
         self.encoder = NewsEncoder(plm_name)
         self.use_rating = use_rating
+        self.use_author_prior = use_author_prior
 
-        # якщо використовуємо rating — додаємо ще один вхідний вимір
-        in_dim = cfg.hidden_size + (1 if use_rating else 0)
+        extra_dims = 0
+        if use_rating:
+            extra_dims += 1
+        if use_author_prior:
+            extra_dims += 1
+
+        in_dim = cfg.hidden_size + extra_dims
 
         self.head = nn.Sequential(
             nn.Linear(in_dim, 256),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.Linear(256, 1)                    # логіт класу "fake"
+            nn.Linear(256, 1)
         )
 
-    def forward(self, input_ids, attention_mask, rating: torch.Tensor = None):
-        """
-        input_ids: [B, L]
-        attention_mask: [B, L]
-        rating: [B] або [B, 1] якщо use_rating=True
-        """
-        text_vec = self.encoder(input_ids, attention_mask)  # [B, H]
+    def forward(self, input_ids, attention_mask,
+                rating: torch.Tensor | None = None,
+                author_prior: torch.Tensor | None = None):
+        text_vec = self.encoder(input_ids, attention_mask)   # [B, H]
+        feats = [text_vec]
+
         if self.use_rating:
             if rating is None:
-                raise ValueError(f"There in {self.__class__.__name__} `use_rating=True` but `rating=None`")
+                raise ValueError("use_rating=True, але rating=None")
             if rating.dim() == 1:
-                rating = rating.unsqueeze(1)  # [B] -> [B,1]
-            x = torch.cat([text_vec, rating], dim=1)  # [B, H+1]
-        else:
-            x = text_vec  # [B, H]
+                rating = rating.unsqueeze(1)
+            feats.append(rating)
 
-        logits = self.head(x).squeeze(1)  # [B]
-        # x = self.encoder(input_ids, attention_mask)
-        # logits = self.head(x).squeeze(1)         # [B]
+        if self.use_author_prior:
+            if author_prior is None:
+                raise ValueError("use_author_prior=True, але author_prior=None")
+            if author_prior.dim() == 1:
+                author_prior = author_prior.unsqueeze(1)
+            feats.append(author_prior)
+
+        x = torch.cat(feats, dim=1)                          # [B, H + extra]
+        logits = self.head(x).squeeze(1)                     # [B]
         return logits
