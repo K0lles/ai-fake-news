@@ -9,8 +9,9 @@ from torch.utils.data import DataLoader, random_split
 from transformers import get_linear_schedule_with_warmup
 from sklearn.model_selection import train_test_split, StratifiedKFold
 
-from src.models.baseline import BaselineClassifier
+from src.models.baseline_classifier import BaselineClassifier
 from src.dataio.dataset import NewsDataset
+from src.models.bayes_classifier import AuthorBayesClassifier
 from src.utils.seed import set_seed
 
 import pandas as pd
@@ -129,7 +130,7 @@ def main2():
         device = cfg["device"] if torch.cuda.is_available() and cfg["device"] == "cuda" else "cpu"
 
         # --- дані
-        csv_path = "data/news_with_authors.csv"
+        csv_path = "data/news_with_authors_liar.csv"
 
         rows = load_rows_from_csv(csv_path)
         y = np.array([r["label"] for r in rows])
@@ -171,6 +172,11 @@ def main2():
                     use_rating=True,
                     use_author_prior=True
                 ).to(device)
+                # model = AuthorBayesClassifier(
+                #     plm_name=cfg["plm_name"],
+                #     d_text=768,
+                #     lambda_prior=1.0,
+                # ).to(device)
 
                 optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
                 total_steps = len(train_loader) * cfg["epochs"]
@@ -196,95 +202,6 @@ def main2():
         # del model, optimizer, scheduler, train_loader, val_loader, train_ds, val_ds
         pass
 
-#
-# def main():
-#     # --- конфіг
-#     with open("configs/baseline.json", "r", encoding="utf-8") as f:
-#         cfg = json.load(f)
-#
-#     set_seed(cfg["random_seed"])
-#     device = cfg["device"] if torch.cuda.is_available() and cfg["device"] == "cuda" else "cpu"
-#
-#     # --- дані
-#     csv_path = "data/samples.csv"
-#     rows = load_rows_from_csv(csv_path)
-#     dataset = NewsDataset(rows, plm_name=cfg["plm_name"], max_len=cfg["max_len"])
-#
-#     val_size = int(len(dataset) * cfg["train_val_split"])
-#     # train_size = len(dataset) - val_size
-#
-#     # ...
-#     rows = load_rows_from_csv(csv_path)
-#
-#     # labels як список для стратифікації
-#     y = [r["label"] for r in rows]
-#
-#     train_rows, val_rows = train_test_split(
-#         rows,
-#         test_size=cfg["train_val_split"],  # 0.2 або 0.3
-#         random_state=cfg["random_seed"],
-#         stratify=y  # <<< головне: стратифікуємо за міткою
-#     )
-#
-#     train_ds = NewsDataset(train_rows, plm_name=cfg["plm_name"], max_len=cfg["max_len"])
-#     val_ds = NewsDataset(val_rows, plm_name=cfg["plm_name"], max_len=cfg["max_len"])
-#     # train_ds, val_ds = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(cfg["random_seed"]))
-#
-#     train_loader = DataLoader(train_ds, batch_size=cfg["batch_size"], shuffle=True, num_workers=0)
-#     val_loader   = DataLoader(val_ds, batch_size=cfg["batch_size"], shuffle=False, num_workers=0)
-#
-#     # --- модель
-#     model = BaselineClassifier(plm_name=cfg["plm_name"]).to(device)
-#
-#     # --- оптимізація
-#     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
-#
-#     total_steps = len(train_loader) * cfg["epochs"]
-#     scheduler = get_linear_schedule_with_warmup(
-#         optimizer,
-#         num_warmup_steps=cfg["warmup_steps"],
-#         num_training_steps=total_steps
-#     )
-#
-#     # --- тренування
-#     best_f1 = -1.0
-#     Path(cfg["save_dir"]).mkdir(parents=True, exist_ok=True)
-#     from sklearn.model_selection import StratifiedKFold
-#     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=cfg["random_seed"])
-#     for epoch in range(cfg["epochs"]):
-#         tr_loss = train_one_epoch(model, train_loader, optimizer, scheduler, device)
-#         # va_loss, va_probs, va_labels = evaluate(model, val_loader, device)
-#
-#         va_loss, va_probs, va_labels = evaluate(model, val_loader, device)
-#
-#         from src.utils.metrics import metrics_report
-#
-#         mr = metrics_report(va_labels, va_probs, thr=0.5)
-#
-#         # якщо у валідації один клас — просто повідомляємо і не оновлюємо best_f1
-#         if len(set(va_labels)) < 2:
-#             print("⚠️ Val split має лише один клас — AUC не визначений, F1 може бути неінформативним.")
-#         else:
-#             if mr["f1_macro"] > best_f1:
-#                 best_f1 = mr["f1_macro"]
-#                 ckpt = os.path.join(cfg["save_dir"], "baseline_best.pt")
-#                 torch.save(model.state_dict(), ckpt)
-#                 print(f"  saved: {ckpt}")
-#
-#         from src.utils.metrics import metrics_report
-#         mr = metrics_report(va_labels, va_probs, thr=0.5)
-#
-#         print(f"\nEpoch {epoch+1}/{cfg['epochs']}:")
-#         print(f"  train_loss={tr_loss:.4f}  val_loss={va_loss:.4f}")
-#         print(f"  AUC={mr['auc']:.4f}  F1_macro={mr['f1_macro']:.4f}")
-#         print(mr["report"])
-#
-#         # збереження чекпойнта за F1
-#         if mr["f1_macro"] > best_f1:
-#             best_f1 = mr["f1_macro"]
-#             ckpt = os.path.join(cfg["save_dir"], "baseline_best.pt")
-#             torch.save(model.state_dict(), ckpt)
-#             print(f"  saved: {ckpt}")
 
 if __name__ == "__main__":
     try:
