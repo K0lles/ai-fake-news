@@ -47,6 +47,20 @@ def map_label_to_is_fake(label: str) -> int:
     raise ValueError(f"Unknown label: {label}")
 
 
+def map_label_to_soft_fake(label: str) -> float:
+    label = label.strip().lower()
+    # можна потім тюнити
+    mapping = {
+        "pants-fire": 1.0,
+        "false": 0.9,
+        "barely-true": 0.7,
+        "half-true": 0.5,
+        "mostly-true": 0.3,
+        "true": 0.1,
+    }
+    return mapping[label]
+
+
 def compute_speaker_ratings(df: pd.DataFrame, alpha: float = 1.0) -> pd.Series:
     """
     Обчислюємо rating для КОЖНОГО спікера на основі історії правдивості з колонок 9–13.
@@ -92,6 +106,7 @@ def build_news_with_authors():
 
     # 2) is_fake
     df["is_fake"] = df["label"].apply(map_label_to_is_fake)
+    df["soft_fake"] = df["label"].apply(map_label_to_soft_fake)
 
     # 3) rating по speaker-у
     speaker_rating = compute_speaker_ratings(df, alpha=1.0)  # Series: speaker -> rating
@@ -130,7 +145,7 @@ def build_news_with_authors():
     df["rating"] = df["author"].map(speaker_rating).fillna(0.5)
 
     # 6) формуємо фінальний датафрейм у твоєму форматі
-    out_df = df[["author", "text", "is_fake", "rating", "position"]].copy()
+    out_df = df[["author", "text", "is_fake", "soft_fake", "rating", "position"]].copy()
 
     # 7) зберігаємо
     OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
