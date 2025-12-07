@@ -7,6 +7,7 @@ class NewsEncoder(nn.Module):
         super().__init__()
         self.model = AutoModel.from_pretrained(plm_name)
         self.dropout = nn.Dropout(dropout_p)
+        self.hidden_size = self.model.config.hidden_size
 
     def forward(self, input_ids, attention_mask):
         out = self.model(input_ids, attention_mask=attention_mask)

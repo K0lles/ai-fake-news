@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from src.models.encoders import NewsEncoder
-from src.models.heads import TextHead  # якщо нема — дам нижче імплементацію
+from src.models.heads import TextHead
 
 
 class AuthorBayesClassifier(nn.Module):
@@ -12,13 +12,12 @@ class AuthorBayesClassifier(nn.Module):
     def __init__(
         self,
         plm_name="xlm-roberta-base",
-        d_text=768,
-        lambda_prior: float = 1.0,
-        lambda_style: float = 1.0,
+        lambda_prior: float = 0.5,
+        lambda_style: float = 0.2,
     ):
         super().__init__()
         self.encoder = NewsEncoder(plm_name=plm_name)
-        self.text_head = TextHead(d_text)
+        self.text_head = TextHead(self.encoder.hidden_size)
         self.lambda_prior = lambda_prior
         self.lambda_style = lambda_style
 
@@ -49,3 +48,7 @@ class AuthorBayesClassifier(nn.Module):
                        + self.lambda_style * logit_style
 
         return logits_final
+
+    def encode(self, ids, attn):
+        """Ембеддинг тексту, використовується для contrastive loss"""
+        return self.encoder(ids, attn)

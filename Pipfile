@@ -16,6 +16,7 @@ matplotlib = "*"
 datasets = "*"
 python-dateutil = "*"
 ipython = "*"
+pyqt6 = "*"
 
 [dev-packages]
 

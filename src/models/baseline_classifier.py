@@ -10,7 +10,9 @@ class BaselineClassifier(nn.Module):
         self,
         plm_name: str = "xlm-roberta-base",
         use_rating: bool = False,
-        use_author_prior: bool = False
+        use_author_prior: bool = False,
+        *args,
+        **kwargs,
     ):
         super().__init__()
         cfg = AutoConfig.from_pretrained(plm_name)

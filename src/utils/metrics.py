@@ -25,3 +25,33 @@ def metrics_report(y_true, y_prob, thr=0.5):
 
     f1 = f1_score(y_true, y_pred, average="macro")
     return {"report": report, "auc": auc, "f1_macro": f1}
+
+
+def error_stats_by_class(y_true: np.ndarray, y_prob: np.ndarray):
+    """
+    "Reconstruction-подібна" метрика:
+    беремо абсолютну похибку |y_true - y_prob|
+    і рахуємо статистику окремо для real (0) і fake (1).
+    """
+    y_true = np.asarray(y_true).astype(float)
+    y_prob = np.asarray(y_prob).astype(float)
+
+    err = np.abs(y_true - y_prob)
+
+    stats = {}
+    for cls_val, cls_name in [(0.0, "real"), (1.0, "fake")]:
+        mask = (y_true == cls_val)
+        if mask.sum() == 0:
+            stats[cls_name] = None
+            continue
+
+        e = err[mask]
+        stats[cls_name] = {
+            "count": int(mask.sum()),
+            "mean": float(e.mean()),
+            "median": float(np.median(e)),
+            "std": float(e.std(ddof=0)),
+            "min": float(e.min()),
+            "max": float(e.max()),
+        }
+    return stats
